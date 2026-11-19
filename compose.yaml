@@ -1,0 +1,44 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-symphony}
+      POSTGRES_USER: ${POSTGRES_USER:-symphony}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dev-only-change-this-password}
+    volumes:
+      - symphony_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-symphony} -d ${POSTGRES_DB:-symphony}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  api:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-symphony}:${POSTGRES_PASSWORD:-dev-only-change-this-password}@db:5432/${POSTGRES_DB:-symphony}
+      JWT_SECRET: ${JWT_SECRET:-replace-this-with-a-long-random-secret-before-deploying}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      ADMIN_NAME: ${ADMIN_NAME:-Admin Symphony}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@example.com}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-DevOnly-ChangeThis123!}
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+
+  web:
+    build: .
+    depends_on:
+      - api
+    ports:
+      - "5173:80"
+    restart: unless-stopped
+
+volumes:
+  symphony_data:
